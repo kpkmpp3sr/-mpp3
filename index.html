@@ -1,151 +1,54 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-<meta charset="UTF-8">
-<title>MPP3 | ระบบช่วยเหลือและแจ้งเหตุฉุกเฉิน</title>
-
-<style>
-body{
-    margin:0;
-    font-family: "Segoe UI", sans-serif;
-    background: linear-gradient(120deg,#fff8cc,#dff3ff);
-    height:100vh;
-    display:flex;
-    justify-content:center;
-    align-items:center;
-}
-
-.card{
-    background:#fff;
-    width:420px;
-    padding:35px;
-    border-radius:24px;
-    box-shadow:0 20px 40px rgba(0,0,0,0.15);
-    text-align:center;
-}
-
-h1{
-    color:#f4b400;
-    font-size:48px;
-    margin:0;
-}
-
-h2{
-    color:#1a73e8;
-    font-size:22px;
-    margin:10px 0;
-}
-
-.school{
-    font-size:15px;
-    color:#444;
-}
-
-button{
-    margin-top:25px;
-    padding:14px 28px;
-    border:none;
-    border-radius:40px;
-    font-size:18px;
-    font-weight:bold;
-    color:#000;
-    background: linear-gradient(90deg,#f7d046,#5cc9f5);
-    cursor:pointer;
-}
-
-button:hover{
-    opacity:0.9;
-}
-
-.status{
-    margin-top:18px;
-    font-size:16px;
-}
-
-.status span{
-    font-weight:bold;
-}
-
-.alert-box{
-    margin-top:25px;
-    border:2px dashed red;
-    padding:22px;
-    border-radius:16px;
-    color:red;
-    font-size:22px;
-    font-weight:bold;
-}
-
-.footer{
-    margin-top:20px;
-    font-size:13px;
-    color:#777;
-}
-</style>
+  <meta charset="UTF-8">
+  <title>micro:bit UART Web Bluetooth</title>
 </head>
+<body style="text-align:center; font-family:sans-serif;">
 
-<body>
+  <h2>ส่งข้อมูลไปยัง micro:bit (Bluetooth UART)</h2>
 
-<div class="card">
-    <h1>MPP3</h1>
-    <h2>ระบบช่วยเหลือและแจ้งเหตุฉุกเฉิน</h2>
-    <div class="school">โรงเรียนมัธยมพัชรกิติยาภา ๓ สุราษฎร์ธานี</div>
+  <button onclick="connect()">เชื่อมต่อ micro:bit</button>
+  <br><br>
 
-    <button onclick="connect()">🔵 เชื่อมต่อ micro:bit</button>
+  <input id="msg" placeholder="พิมพ์ข้อความ" />
+  <button onclick="send()">ส่งข้อมูล</button>
 
-    <div class="status">
-        สถานะ: <span id="status">❌ ยังไม่เชื่อมต่อ</span>
-    </div>
-
-    <div id="alert" class="alert-box">
-        รอการแจ้งเหตุ...
-    </div>
-
-    <div class="footer">
-        Emergency Assistance System | MPP3
-    </div>
-</div>
+  <p id="status"></p>
 
 <script>
-let device;
-let rxChar;
+let txChar;
 
-async function connect(){
-    try{
-        device = await navigator.bluetooth.requestDevice({
-            filters:[{namePrefix:'BBC micro:bit'}],
-            optionalServices:['6e400001-b5a3-f393-e0a9-e50e24dcca9e']
-        });
+async function connect() {
+  try {
+    const device = await navigator.bluetooth.requestDevice({
+      filters: [{ namePrefix: 'BBC micro:bit' }],
+      optionalServices: ['6e400001-b5a3-f393-e0a9-e50e24dcca9e']
+    });
 
-        const server = await device.gatt.connect();
-        const service = await server.getPrimaryService(
-            '6e400001-b5a3-f393-e0a9-e50e24dcca9e'
-        );
+    const server = await device.gatt.connect();
+    const service = await server.getPrimaryService(
+      '6e400001-b5a3-f393-e0a9-e50e24dcca9e'
+    );
 
-        rxChar = await service.getCharacteristic(
-            '6e400003-b5a3-f393-e0a9-e50e24dcca9e'
-        );
+    txChar = await service.getCharacteristic(
+      '6e400002-b5a3-f393-e0a9-e50e24dcca9e'
+    );
 
-        await rxChar.startNotifications();
-        rxChar.addEventListener('characteristicvaluechanged', onReceive);
-
-        document.getElementById("status").innerHTML = "✅ เชื่อมต่อสำเร็จ";
-    }
-    catch(err){
-        document.getElementById("status").innerHTML =
-            "❌ " + err.message;
-    }
+    document.getElementById("status").innerText = "✅ เชื่อมต่อสำเร็จ";
+  } catch (err) {
+    document.getElementById("status").innerText = "❌ " + err;
+  }
 }
 
-function onReceive(event){
-    const value = new TextDecoder().decode(event.target.value).trim();
-    console.log(value);
-
-    if(value === "ten"){
-        document.getElementById("alert").innerHTML =
-            "🚨 แจ้งเหตุฉุกเฉินแล้ว!";
-        document.getElementById("alert").style.color = "red";
-    }
+async function send() {
+  if (!txChar) {
+    alert("ยังไม่ได้เชื่อมต่อ");
+    return;
+  }
+  const text = document.getElementById("msg").value + "\n";
+  const data = new TextEncoder().encode(text);
+  await txChar.writeValue(data);
 }
 </script>
 
