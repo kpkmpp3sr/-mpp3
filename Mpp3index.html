@@ -1,86 +1,141 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ระบบรับสัญญาณแจ้งเหตุ - Help System</title>
-    <style>
-        body { font-family: 'Tahoma', sans-serif; text-align: center; background-color: #e3f2fd; padding: 20px; }
-        .card { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 400px; margin: auto; }
-        button { background-color: #007bff; color: white; border: none; padding: 15px 30px; font-size: 18px; border-radius: 10px; cursor: pointer; width: 100%; }
-        #status { margin: 20px 0; color: #666; font-size: 14px; }
-        #emergency { display: none; background-color: #ff5252; color: white; padding: 20px; border-radius: 15px; margin-top: 20px; animation: pulse 1s infinite; }
-        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
-    </style>
+<meta charset="UTF-8">
+<title>MPP3 | ระบบช่วยเหลือและแจ้งเหตุฉุกเฉิน</title>
+
+<style>
+body {
+  margin: 0;
+  height: 100vh;
+  background: linear-gradient(135deg, #fff9c4, #b3e5fc);
+  font-family: "Segoe UI", sans-serif;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.card {
+  background: white;
+  width: 420px;
+  padding: 30px;
+  border-radius: 20px;
+  text-align: center;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+}
+
+h1 {
+  color: #f4b400;
+  margin-bottom: 5px;
+}
+
+h2 {
+  color: #0277bd;
+  font-size: 18px;
+  margin: 5px 0;
+}
+
+.school {
+  color: #555;
+  font-size: 14px;
+}
+
+button {
+  margin-top: 25px;
+  background: linear-gradient(90deg, #fdd835, #4fc3f7);
+  border: none;
+  padding: 14px 30px;
+  font-size: 18px;
+  border-radius: 30px;
+  cursor: pointer;
+}
+
+button:hover {
+  opacity: 0.9;
+}
+
+#status {
+  margin-top: 15px;
+  font-weight: bold;
+}
+
+.alert {
+  margin-top: 20px;
+  padding: 20px;
+  border: 2px dashed red;
+  border-radius: 15px;
+  color: red;
+  font-size: 20px;
+}
+
+.footer {
+  margin-top: 20px;
+  font-size: 12px;
+  color: #888;
+}
+</style>
 </head>
+
 <body>
 
 <div class="card">
-    <h2>ระบบช่วยเหลือฉุกเฉิน</h2>
-    <p>สำหรับนักเรียนกลุ่มเปราะบาง</p>
-    
-    <button onclick="onConnectClick()">เชื่อมต่อกับ micro:bit</button>
-    <div id="status">สถานะ: รอการเชื่อมต่อ...</div>
-    
-    <div id="emergency">
-        <h1>🚨 มีการแจ้งเหตุ!</h1>
-        <p>นักเรียนกำลังขอความช่วยเหลือ</p>
-        <button onclick="resetAlert()" style="background:#fff; color:#ff5252; margin-top:10px;">รับทราบแล้ว</button>
-    </div>
+  <h1>MPP3</h1>
+  <h2>ระบบช่วยเหลือและแจ้งเหตุฉุกเฉิน</h2>
+  <div class="school">โรงเรียนมัธยมพัชรกิติยาภา ๓ สุราษฎร์ธานี</div>
+
+  <button onclick="connect()">🔵 เชื่อมต่อ micro:bit</button>
+
+  <div id="status">สถานะ: ❌ ยังไม่เชื่อมต่อ</div>
+
+  <div id="alert" class="alert">รอการแจ้งเหตุ...</div>
+
+  <div class="footer">Emergency Assistance System | MPP3</div>
 </div>
 
 <script>
-    // UUID มาตรฐานของ micro:bit UART
-    const UART_SERVICE_UUID = 'e95d93af-251d-470a-a062-fa1922dfa9a8';
-    const UART_TX_CHARACTERISTIC_UUID = 'e95d7140-251d-470a-a062-fa1922dfa9a8';
+// ===== UART UUID ของ micro:bit (ถูกต้อง) =====
+const UART_SERVICE = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
+const UART_RX      = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
 
-    async function onConnectClick() {
-        try {
-            // แก้ไข filter เป็นชื่อเฉพาะของคุณ
-            const device = await navigator.bluetooth.requestDevice({
-                filters: [{ namePrefix: 'BBC micro:bit [vivig]' }], 
-                optionalServices: [UART_SERVICE_UUID]
-            });
+let rxChar = null;
 
-            document.getElementById('status').innerText = "กำลังเชื่อมต่อ...";
-            const server = await device.gatt.connect();
-            const service = await server.getPrimaryService(UART_SERVICE_UUID);
-            const characteristic = await server.getPrimaryService(UART_SERVICE_UUID).getCharacteristic(UART_TX_CHARACTERISTIC_UUID);
+async function connect() {
+  try {
+    const device = await navigator.bluetooth.requestDevice({
+      filters: [{ namePrefix: "BBC micro:bit" }],
+      optionalServices: [UART_SERVICE]
+    });
 
-            await characteristic.startNotifications();
-            document.getElementById('status').innerText = "เชื่อมต่อสำเร็จ! พร้อมรับสัญญาณ";
-            document.getElementById('status').style.color = "green";
+    const server = await device.gatt.connect();
+    const service = await server.getPrimaryService(UART_SERVICE);
+    rxChar = await service.getCharacteristic(UART_RX);
 
-            characteristic.addEventListener('characteristicvaluechanged', handleNotifications);
-        } catch (error) {
-            // แก้ไขข้อผิดพลาดไวยากรณ์ JavaScript
-            alert("ข้อผิดพลาดในการเชื่อมต่อ: " + error); 
-        }
-    }
+    await rxChar.startNotifications();
+    rxChar.addEventListener("characteristicvaluechanged", onReceive);
 
-    function handleNotifications(event) {
-        let value = new TextDecoder().decode(event.target.value);
-        console.log("Received Data: ", value);
+    document.getElementById("status").innerHTML =
+      "สถานะ: ✅ เชื่อมต่อแล้ว (" + device.name + ")";
+  }
+  catch (err) {
+    document.getElementById("status").innerHTML =
+      "สถานะ: ❌ " + err.message;
+  }
+}
 
-        // ดักจับค่า "ten:0" ที่ส่งมาจาก micro:bit
-        if (value.includes("ten")) {
-            showEmergency();
-        }
-    }
+function onReceive(event) {
+  const text = new TextDecoder().decode(event.target.value).trim();
+  const alertBox = document.getElementById("alert");
 
-    function showEmergency() {
-        document.getElementById('emergency').style.display = 'block';
-        if ('vibrate' in navigator) {
-            navigator.vibrate([500, 200, 500, 200, 500]); // สั่นแจ้งเตือนครู
-        }
-        // แก้ไข URL เสียงให้ถูกต้อง
-        let audio = new Audio('https://actions.google.com');
-        audio.play();
-    }
-
-    function resetAlert() {
-        document.getElementById('emergency').style.display = 'none';
-    }
+  if (text === "ten") {
+    alertBox.innerHTML = "🚨 ขอความช่วยเหลือจาก micro:bit";
+    alertBox.style.color = "red";
+    alertBox.style.borderColor = "red";
+  } else {
+    alertBox.innerHTML = text;
+    alertBox.style.color = "#0277bd";
+    alertBox.style.borderColor = "#0277bd";
+  }
+}
 </script>
 
 </body>
