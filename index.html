@@ -2,75 +2,72 @@
 <html lang="th">
 <head>
 <meta charset="UTF-8">
-<title>MPP3 Emergency System</title>
+<title>MPP3 | ระบบช่วยเหลือและแจ้งเหตุฉุกเฉิน</title>
 
 <style>
-body {
-  margin: 0;
-  font-family: "Segoe UI", sans-serif;
-  background: linear-gradient(135deg, #fff9c4, #bbdefb);
-  height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+body{
+  margin:0;
+  height:100vh;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  background: linear-gradient(135deg,#fff9c4,#e3f2fd);
+  font-family: "Segoe UI", Tahoma, sans-serif;
 }
 
-.card {
-  background: #fff;
-  width: 420px;
-  padding: 30px;
-  border-radius: 20px;
-  box-shadow: 0 15px 30px rgba(0,0,0,0.2);
-  text-align: center;
+.card{
+  background:#fff;
+  width:420px;
+  padding:40px;
+  border-radius:25px;
+  text-align:center;
+  box-shadow:0 20px 40px rgba(0,0,0,.15);
 }
 
-.logo {
-  font-size: 42px;
-  font-weight: bold;
-  color: #f4b400;
+h1{
+  color:#f4b400;
+  font-size:48px;
+  margin:0;
 }
 
-.title {
-  font-size: 20px;
-  color: #0277bd;
-  margin-top: 10px;
+h2{
+  color:#1e88e5;
+  margin:10px 0;
 }
 
-.school {
-  font-size: 14px;
-  color: #555;
-  margin-bottom: 20px;
+.school{
+  color:#444;
+  font-size:15px;
 }
 
-button {
-  background: linear-gradient(135deg, #ffd54f, #4fc3f7);
-  border: none;
-  border-radius: 25px;
-  padding: 12px 25px;
-  font-size: 16px;
-  font-weight: bold;
-  cursor: pointer;
+button{
+  margin-top:25px;
+  border:none;
+  padding:14px 28px;
+  font-size:18px;
+  border-radius:50px;
+  background: linear-gradient(90deg,#fdd835,#4fc3f7);
+  cursor:pointer;
 }
 
-#status {
-  margin-top: 15px;
-  font-size: 14px;
+#status{
+  margin-top:15px;
+  font-weight:bold;
 }
 
-#alert {
-  margin-top: 20px;
-  border: 2px dashed red;
-  border-radius: 10px;
-  padding: 20px;
-  font-size: 18px;
-  color: red;
-  font-weight: bold;
+.box{
+  margin-top:25px;
+  padding:20px;
+  border:2px dashed red;
+  border-radius:15px;
+  font-size:22px;
+  color:red;
 }
 
-footer {
-  margin-top: 15px;
-  font-size: 12px;
-  color: #777;
+footer{
+  margin-top:25px;
+  font-size:13px;
+  color:#666;
 }
 </style>
 </head>
@@ -78,63 +75,60 @@ footer {
 <body>
 
 <div class="card">
-  <div class="logo">MPP3</div>
-  <div class="title">ระบบช่วยเหลือและแจ้งเหตุฉุกเฉิน</div>
+  <h1>MPP3</h1>
+  <h2>ระบบช่วยเหลือและแจ้งเหตุฉุกเฉิน</h2>
   <div class="school">โรงเรียนมัธยมพัชรกิติยาภา ๓ สุราษฎร์ธานี</div>
 
   <button onclick="connect()">🔵 เชื่อมต่อ micro:bit</button>
 
-  <div id="status">สถานะ: ยังไม่เชื่อมต่อ</div>
+  <div id="status">สถานะ: ❌ ยังไม่เชื่อมต่อ</div>
 
-  <div id="alert">รอการแจ้งเหตุ...</div>
+  <div id="msg" class="box">รอการแจ้งเหตุ…</div>
 
   <footer>Emergency Assistance System | MPP3</footer>
 </div>
 
 <script>
 const UART_SERVICE = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
-const UART_NOTIFY = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
+const UART_RX = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
 
-async function connect() {
-  try {
-    document.getElementById("status").textContent =
-      "สถานะ: กำลังเชื่อมต่อ...";
-
+async function connect(){
+  try{
     const device = await navigator.bluetooth.requestDevice({
-      filters: [{ namePrefix: "BBC micro:bit" }],
-      optionalServices: [UART_SERVICE]
+      filters:[{namePrefix:"BBC micro:bit"}],
+      optionalServices:[UART_SERVICE]
     });
 
     const server = await device.gatt.connect();
     const service = await server.getPrimaryService(UART_SERVICE);
-    const notifyChar = await service.getCharacteristic(UART_NOTIFY);
+    const rx = await service.getCharacteristic(UART_RX);
 
-    await notifyChar.startNotifications();
-    notifyChar.addEventListener(
-      "characteristicvaluechanged",
-      onReceive
-    );
+    await rx.startNotifications();
+    rx.addEventListener("characteristicvaluechanged", onData);
 
-    document.getElementById("status").textContent =
-      "สถานะ: ✅ เชื่อมต่อสำเร็จ";
+    document.getElementById("status").innerHTML =
+      "สถานะ: ✅ เชื่อมต่อแล้ว";
 
-  } catch (err) {
-    document.getElementById("status").textContent =
-      "สถานะ: ❌ เชื่อมต่อไม่สำเร็จ";
-    console.error(err);
+  }catch(err){
+    document.getElementById("status").innerHTML =
+      "สถานะ: ❌ " + err.message;
   }
 }
 
-function onReceive(event) {
-  const value = event.target.value;
-  let text = "";
+function onData(e){
+  const text = new TextDecoder().decode(e.target.value).trim();
+  const box = document.getElementById("msg");
 
-  for (let i = 0; i < value.byteLength; i++) {
-    text += String.fromCharCode(value.getUint8(i));
+  // 🔴 ตรงกับ micro:bit ที่ส่ง "ten"
+  if(text === "ten"){
+    box.textContent = "🆘 ขอความช่วยเหลือจาก micro:bit";
+    box.style.color = "red";
+    box.style.borderColor = "red";
+  }else{
+    box.textContent = "📩 ข้อมูล: " + text;
+    box.style.color = "#333";
+    box.style.borderColor = "#999";
   }
-
-  document.getElementById("alert").textContent =
-    "🚨 แจ้งเหตุ: " + text;
 }
 </script>
 
