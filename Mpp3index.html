@@ -1,39 +1,75 @@
 <!DOCTYPE html>
-<html>
+<html lang="th">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ระบบช่วยเหลือนักเรียนกลุ่มเปราะบาง</title>
+    <title>ระบบช่วยเหลือฉุกเฉิน</title>
     <style>
-        body { font-family: sans-serif; text-align: center; padding: 20px; background: #f0f0f0; }
-        .btn { padding: 20px 40px; font-size: 20px; background: #28a745; color: white; border: none; border-radius: 10px; cursor: pointer; }
-        #status { margin: 20px; font-weight: bold; color: #555; }
-        #alertBox { display: none; background: red; color: white; padding: 30px; font-size: 30px; margin-top: 20px; animation: blink 1s infinite; }
-        @keyframes blink { 0% {opacity: 1;} 50% {opacity: 0.5;} 100% {opacity: 1;} }
+        body { font-family: 'Arial', sans-serif; text-align: center; padding: 50px; background-color: #f8f9fa; }
+        .status-box { padding: 20px; border-radius: 15px; background: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: inline-block; }
+        #connectBtn { background-color: #007bff; color: white; border: none; padding: 15px 30px; font-size: 18px; border-radius: 10px; cursor: pointer; }
+        #alertDisplay { display: none; margin-top: 30px; padding: 40px; background-color: #ff4d4d; color: white; border-radius: 20px; font-size: 40px; font-weight: bold; animation: pulse 1s infinite; }
+        @keyframes pulse { 0% {transform: scale(1);} 50% {transform: scale(1.05);} 100% {transform: scale(1);} }
     </style>
 </head>
 <body>
-    <h1>ระบบรับแจ้งเหตุฉุกเฉิน</h1>
-    <button class="btn" onclick="connect()">1. เชื่อมต่อบอร์ดนักเรียน</button>
-    <div id="status">สถานะ: รอการเชื่อมต่อ</div>
-    <div id="alertBox">🚨 ตรวจพบการขอความช่วยเหลือ! 🚨</div>
+    <div class="status-box">
+        <h1>ระบบรับสัญญาณฉุกเฉิน</h1>
+        <button id="connectBtn">คลิกเพื่อเชื่อมต่อบอร์ดนักเรียน</button>
+        <p id="statusText">สถานะ: ยังไม่ได้เชื่อมต่อ</p>
+    </div>
+
+    <div id="alertDisplay">🚨 มีการขอความช่วยเหลือ! 🚨</div>
 
     <script>
-        async function connect() {
-            const UART_SERVICE = 'e95d93af-251d-470a-a062-fa1922dfa9a8';
-            const UART_TX = 'e95d7140-251d-470a-a062-fa1922dfa9a8';
+        const UART_SERVICE_UUID = 'e95d93af-251d-470a-a062-fa1922dfa9a8';
+        const UART_TX_CHARACTERISTIC_UUID = 'e95d7140-251d-470a-a062-fa1922dfa9a8';
 
+        const btn = document.getElementById('connectBtn');
+        const status = document.getElementById('statusText');
+        const alertBox = document.getElementById('alertDisplay');
+
+        btn.addEventListener('click', async () => {
             try {
+                // ขอเชื่อมต่อ
                 const device = await navigator.bluetooth.requestDevice({
                     filters: [{ namePrefix: 'BBC micro:bit' }],
-                    optionalServices: [UART_SERVICE]
+                    optionalServices: [UART_SERVICE_UUID]
                 });
 
-                document.getElementById('status').innerText = "กำลังเชื่อมต่อกับ " + device.name;
+                status.innerText = "กำลังเชื่อมต่อ...";
                 const server = await device.gatt.connect();
-                const service = await server.getPrimaryService(UART_SERVICE);
-                const char = await service.getCharacteristic(UART_TX);
+                const service = await server.getPrimaryService(UART_SERVICE_UUID);
+                const characteristic = await service.getCharacteristic(UART_TX_CHARACTERISTIC_UUID);
 
+                // เริ่มรับข้อมูล
+                await characteristic.startNotifications();
+                status.innerText = "เชื่อมต่อสำเร็จ - กำลังเฝ้าระวังภัย ✅";
+                status.style.color = "green";
+                btn.style.display = "none";
+
+                characteristic.addEventListener('characteristicvaluechanged', (event) => {
+                    let receivedData = new TextDecoder().decode(event.target.value);
+                    console.log("Data:", receivedData);
+
+                    // ถ้าได้รับคำว่า HELP
+                    if (receivedData.includes("HELP")) {
+                        triggerAlert();
+                    }
+
+        function triggerAlert() {
+            alertBox.style.display = "block";
+            // สั่นมือถือ (สำหรับ Android)
+            if ('vibrate' in navigator) {
+                navigator.vibrate([500, 200, 500, 200, 500]);
+            }
+            // ส่งเสียงแจ้งเตือนบนมือถือครู
+            const audio = new Audio('actions.google.com');
+            audio.play();
+        }
+    </script>
+</body>
+</html>
                 await char.startNotifications();
                 document.getElementById('status').innerText = "เชื่อมต่อแล้ว (เฝ้าระวังเหตุ...)";
                 document.getElementById('status').style.color = "green";
