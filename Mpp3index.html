@@ -7,7 +7,7 @@
 <style>
 body{
   margin:0;
-  font-family: "Segoe UI", Arial, sans-serif;
+  font-family:"Segoe UI", Arial, sans-serif;
   background: linear-gradient(135deg,#fff7cc,#e3f2fd);
   height:100vh;
   display:flex;
@@ -33,6 +33,7 @@ body{
 .title{
   color:#2979ff;
   margin-bottom:25px;
+  font-weight:bold;
 }
 
 button{
@@ -55,8 +56,9 @@ button{
   border:2px dashed red;
   padding:20px;
   border-radius:15px;
-  font-size:22px;
+  font-size:20px;
   color:red;
+  min-height:60px;
 }
 </style>
 </head>
@@ -64,6 +66,7 @@ button{
 <body>
 <div class="card">
   <div class="logo">MPP3</div>
+
   <div class="title">
     ระบบช่วยเหลือและแจ้งเหตุฉุกเฉิน<br>
     โรงเรียนมัธยมพัชรกิติยาภา ๓ สุราษฎร์ธานี
@@ -98,20 +101,26 @@ async function connect(){
     await rxChar.startNotifications();
 
     rxChar.addEventListener('characteristicvaluechanged', e => {
-      const msg = new TextDecoder().decode(e.target.value).trim().toUpperCase();
+      const msg = new TextDecoder()
+        .decode(e.target.value)
+        .trim();
+
       console.log("รับจากบอร์ด:", msg);
 
-      if(msg === "TEN"){
+      // ตัวอย่างข้อความ: TEN Help 02/3
+      if(msg.toUpperCase().startsWith("TEN")){
         document.getElementById("alertBox").innerHTML =
-          "🚨 แจ้งเหตุฉุกเฉิน (TEN)";
+          "🚨 <b>แจ้งเหตุฉุกเฉิน</b><br>" +
+          "👤 นักเรียน: " + msg;
       }
-      else if(msg === "HELP"){
+      else if(msg.toUpperCase().startsWith("HELP")){
         document.getElementById("alertBox").innerHTML =
-          "🆘 ขอความช่วยเหลือ (HELP)";
+          "🆘 <b>ขอความช่วยเหลือ</b><br>" +
+          "👤 นักเรียน: " + msg;
       }
       else{
         document.getElementById("alertBox").innerHTML =
-          "📩 รับข้อความ: " + msg;
+          "📩 ข้อความจากบอร์ด:<br>" + msg;
       }
     });
 
@@ -120,7 +129,7 @@ async function connect(){
   }
   catch(err){
     document.getElementById("status").innerText =
-      "สถานะ: ❌ เชื่อมต่อไม่สำเร็จ";
+      "สถานะ: ❌ เชื่อมต่อไม่สำเร็จ (ใช้ Chrome)";
     console.error(err);
   }
 }
@@ -128,4 +137,3 @@ async function connect(){
 
 </body>
 </html>
-
