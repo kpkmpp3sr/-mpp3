@@ -58,7 +58,7 @@ button{
   border-radius:15px;
   font-size:20px;
   color:red;
-  min-height:60px;
+  min-height:80px;
 }
 </style>
 </head>
@@ -80,7 +80,7 @@ button{
 </div>
 
 <script>
-let rxChar;
+let txChar;
 
 async function connect(){
   try{
@@ -90,37 +90,40 @@ async function connect(){
     });
 
     const server = await device.gatt.connect();
+
     const service = await server.getPrimaryService(
       '6e400001-b5a3-f393-e0a9-e50e24dcca9e'
     );
 
-    rxChar = await service.getCharacteristic(
-      '6e400003-b5a3-f393-e0a9-e50e24dcca9e'
+    // 🔴 จุดสำคัญ: ใช้ TX (6e400002)
+    txChar = await service.getCharacteristic(
+      '6e400002-b5a3-f393-e0a9-e50e24dcca9e'
     );
 
-    await rxChar.startNotifications();
+    await txChar.startNotifications();
 
-    rxChar.addEventListener('characteristicvaluechanged', e => {
+    txChar.addEventListener('characteristicvaluechanged', event => {
       const msg = new TextDecoder()
-        .decode(e.target.value)
+        .decode(event.target.value)
         .trim();
 
       console.log("รับจากบอร์ด:", msg);
 
-      // ตัวอย่างข้อความ: TEN Help 02/3
-      if(msg.toUpperCase().startsWith("TEN")){
+      // รูปแบบข้อความ: TEN,สมชาย,02/3
+      const data = msg.split(",");
+
+      if(data.length >= 3){
+        const name = data[1];
+        const location = data[2];
+
+        const building = location.charAt(0);
+        const floor = location.charAt(2);
+
         document.getElementById("alertBox").innerHTML =
           "🚨 <b>แจ้งเหตุฉุกเฉิน</b><br>" +
-          "👤 นักเรียน: " + msg;
-      }
-      else if(msg.toUpperCase().startsWith("HELP")){
-        document.getElementById("alertBox").innerHTML =
-          "🆘 <b>ขอความช่วยเหลือ</b><br>" +
-          "👤 นักเรียน: " + msg;
-      }
-      else{
-        document.getElementById("alertBox").innerHTML =
-          "📩 ข้อความจากบอร์ด:<br>" + msg;
+          "👤 นักเรียน: " + name + "<br>" +
+          "📍 ตำแหน่ง: อาคาร " + building +
+          " ชั้น " + floor;
       }
     });
 
