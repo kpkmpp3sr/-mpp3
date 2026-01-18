@@ -114,6 +114,14 @@ async function connectMicrobit() {
             "เชื่อมต่อสำเร็จ ✔ พร้อมรับสัญญาณ";
         document.getElementById("status").style.color = "green";
         document.getElementById("connectBtn").disabled = true;
+
+    } catch (error) {
+        alert("เชื่อมต่อไม่สำเร็จ: " + error);
+        console.error(error);
+        document.getElementById("status").innerText = "เชื่อมต่อล้มเหลว";
+    }
+}
+
 // ===============================
 // รับข้อมูลจาก micro:bit
 // ===============================
