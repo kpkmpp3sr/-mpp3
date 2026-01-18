@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
 <meta charset="UTF-8">
-<title>MPP3 Emergency System</title>
+<title>MPP3 Emergency Assistance System</title>
 
 <style>
 body{
@@ -16,63 +16,63 @@ body{
 }
 
 .card{
-  background:white;
-  width:460px;
+  background:#ffffff;
+  width:440px;
   padding:40px;
   border-radius:30px;
   text-align:center;
-  box-shadow:0 20px 45px rgba(0,0,0,0.2);
+  box-shadow:0 20px 40px rgba(0,0,0,.15);
 }
 
-.logo{
-  font-size:48px;
-  font-weight:bold;
+h1{
   color:#f4b400;
+  font-size:48px;
+  margin:0;
 }
 
-.subtitle{
+h2{
   color:#1e88e5;
-  font-size:20px;
-  margin-bottom:8px;
+  font-size:22px;
+  margin:10px 0;
 }
 
 .school{
+  color:#333;
   font-size:14px;
   margin-bottom:25px;
 }
 
 button{
-  border:none;
-  padding:15px 30px;
-  border-radius:30px;
-  font-size:16px;
-  cursor:pointer;
   background: linear-gradient(90deg,#fdd835,#42a5f5);
-  margin:8px;
+  border:none;
+  color:#000;
+  padding:16px 34px;
+  font-size:18px;
+  border-radius:40px;
+  cursor:pointer;
+  transition:.3s;
+}
+
+button:hover{
+  transform:scale(1.05);
 }
 
 #status{
-  margin-top:15px;
+  margin-top:18px;
   font-weight:bold;
 }
 
 .alert-box{
-  margin-top:25px;
-  padding:25px;
-  border-radius:20px;
-  border:3px dashed red;
+  margin-top:28px;
+  padding:22px;
+  border-radius:18px;
+  border:3px dashed #ff5252;
+  color:#d50000;
   font-size:22px;
-  color:red;
-  transition:0.3s;
-}
-
-.alert-active{
-  background:#ffebee;
-  box-shadow:0 0 20px red;
 }
 
 .footer{
-  margin-top:25px;
+  margin-top:20px;
   font-size:12px;
   color:#777;
 }
@@ -82,8 +82,8 @@ button{
 <body>
 
 <div class="card">
-  <div class="logo">MPP3</div>
-  <div class="subtitle">ระบบช่วยเหลือและแจ้งเหตุฉุกเฉิน</div>
+  <h1>MPP3</h1>
+  <h2>ระบบช่วยเหลือและแจ้งเหตุฉุกเฉิน</h2>
   <div class="school">
     โรงเรียนมัธยมพัชรกิติยาภา ๓ สุราษฎร์ธานี
   </div>
@@ -92,7 +92,7 @@ button{
 
   <div id="status">สถานะ: ยังไม่เชื่อมต่อ</div>
 
-  <div id="alert" class="alert-box">
+  <div class="alert-box" id="alert">
     ⏳ รอการแจ้งเหตุจากบอร์ด...
   </div>
 
@@ -104,43 +104,49 @@ button{
 <script>
 let rxChar;
 
+// UUID ของ Bluetooth UART
+const UART_SERVICE = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
+const UART_RX = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
+
 async function connect(){
   try{
+    if(!navigator.bluetooth){
+      document.getElementById("status").innerText =
+        "❌ เบราว์เซอร์ไม่รองรับ Bluetooth";
+      return;
+    }
+
     const device = await navigator.bluetooth.requestDevice({
-      filters: [{ namePrefix: 'BBC micro:bit' }],
-      optionalServices: ['6e400001-b5a3-f393-e0a9-e50e24dcca9e']
+      filters:[{namePrefix:"BBC micro:bit"}],
+      optionalServices:[UART_SERVICE]
     });
 
     const server = await device.gatt.connect();
-    const service = await server.getPrimaryService(
-      '6e400001-b5a3-f393-e0a9-e50e24dcca9e'
-    );
+    const service = await server.getPrimaryService(UART_SERVICE);
 
-    rxChar = await service.getCharacteristic(
-      '6e400003-b5a3-f393-e0a9-e50e24dcca9e'
-    );
-
+    rxChar = await service.getCharacteristic(UART_RX);
     await rxChar.startNotifications();
-    rxChar.addEventListener('characteristicvaluechanged', receiveData);
 
-    document.getElementById("status").innerHTML =
-      "สถานะ: ✅ เชื่อมต่อสำเร็จ";
+    rxChar.addEventListener("characteristicvaluechanged", e=>{
+      const msg = new TextDecoder().decode(e.target.value).trim();
+      console.log("รับ:", msg);
+
+      if(msg === "HELP"){
+        document.getElementById("alert").innerText =
+          "🚨 แจ้งเหตุฉุกเฉินแล้ว!";
+      }else{
+        document.getElementById("alert").innerText =
+          "📩 ข้อความจากบอร์ด: " + msg;
+      }
+    });
+
+    document.getElementById("status").innerText =
+      "✅ เชื่อมต่อ micro:bit สำเร็จ";
   }
   catch(err){
-    document.getElementById("status").innerHTML =
-      "สถานะ: ❌ Bluetooth ไม่รองรับ";
     console.error(err);
-  }
-}
-
-function receiveData(e){
-  const msg = new TextDecoder().decode(e.target.value).trim();
-  console.log("รับจากบอร์ด:", msg);
-
-  if(msg === "ten"){
-    const alertBox = document.getElementById("alert");
-    alertBox.innerHTML = "🚨 แจ้งเหตุฉุกเฉินแล้ว!";
-    alertBox.classList.add("alert-active");
+    document.getElementById("status").innerText =
+      "❌ เชื่อมต่อไม่สำเร็จ (เปิดผ่าน Chrome เท่านั้น)";
   }
 }
 </script>
