@@ -1,26 +1,114 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-  <meta charset="UTF-8">
-  <title>micro:bit UART Web Bluetooth</title>
+<meta charset="UTF-8">
+<title>MPP3 Emergency System</title>
+
+<style>
+body{
+  margin:0;
+  height:100vh;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  background: linear-gradient(120deg,#fffde7,#e3f2fd);
+  font-family: "Segoe UI", sans-serif;
+}
+
+.card{
+  background:#fff;
+  width:420px;
+  padding:40px;
+  border-radius:25px;
+  text-align:center;
+  box-shadow:0 15px 40px rgba(0,0,0,0.15);
+}
+
+h1{
+  color:#f4b400;
+  margin-bottom:5px;
+}
+
+h3{
+  color:#1e88e5;
+  margin-top:0;
+}
+
+.school{
+  font-size:14px;
+  margin-bottom:25px;
+}
+
+button{
+  border:none;
+  padding:15px 28px;
+  font-size:16px;
+  border-radius:30px;
+  cursor:pointer;
+  background: linear-gradient(90deg,#fdd835,#42a5f5);
+  color:#000;
+  margin:8px 0;
+}
+
+input{
+  width:80%;
+  padding:12px;
+  border-radius:20px;
+  border:1px solid #ccc;
+  margin-top:10px;
+}
+
+#status{
+  margin-top:15px;
+  font-weight:bold;
+}
+
+#alert{
+  margin-top:25px;
+  border:2px dashed red;
+  padding:20px;
+  border-radius:15px;
+  color:red;
+  font-size:20px;
+}
+.footer{
+  margin-top:20px;
+  font-size:12px;
+  color:#777;
+}
+</style>
 </head>
-<body style="text-align:center; font-family:sans-serif;">
 
-  <h2>ส่งข้อมูลไปยัง micro:bit (Bluetooth UART)</h2>
+<body>
 
-  <button onclick="connect()">เชื่อมต่อ micro:bit</button>
-  <br><br>
+<div class="card">
+  <h1>MPP3</h1>
+  <h3>ระบบช่วยเหลือและแจ้งเหตุฉุกเฉิน</h3>
+  <div class="school">
+    โรงเรียนมัธยมพัชรกิติยาภา ๓ สุราษฎร์ธานี
+  </div>
 
-  <input id="msg" placeholder="พิมพ์ข้อความ" />
-  <button onclick="send()">ส่งข้อมูล</button>
+  <button onclick="connect()">🔵 เชื่อมต่อ micro:bit</button>
 
-  <p id="status"></p>
+  <br>
+  <input id="msg" placeholder="พิมพ์ข้อความ (เช่น ten)" />
+  <br>
+  <button onclick="send()">📤 ส่งข้อมูล</button>
+
+  <div id="status">สถานะ: ยังไม่เชื่อมต่อ</div>
+
+  <div id="alert">รอการแจ้งเหตุ...</div>
+
+  <div class="footer">
+    Emergency Assistance System | MPP3
+  </div>
+</div>
 
 <script>
 let txChar;
 
-async function connect() {
-  try {
+async function connect(){
+  try{
     const device = await navigator.bluetooth.requestDevice({
       filters: [{ namePrefix: 'BBC micro:bit' }],
       optionalServices: ['6e400001-b5a3-f393-e0a9-e50e24dcca9e']
@@ -35,20 +123,29 @@ async function connect() {
       '6e400002-b5a3-f393-e0a9-e50e24dcca9e'
     );
 
-    document.getElementById("status").innerText = "✅ เชื่อมต่อสำเร็จ";
-  } catch (err) {
-    document.getElementById("status").innerText = "❌ " + err;
+    document.getElementById("status").innerHTML =
+      "สถานะ: ✅ เชื่อมต่อสำเร็จ";
+  }
+  catch(err){
+    document.getElementById("status").innerHTML =
+      "สถานะ: ❌ " + err;
   }
 }
 
-async function send() {
-  if (!txChar) {
-    alert("ยังไม่ได้เชื่อมต่อ");
+async function send(){
+  if(!txChar){
+    alert("ยังไม่ได้เชื่อมต่อ micro:bit");
     return;
   }
+
   const text = document.getElementById("msg").value + "\n";
   const data = new TextEncoder().encode(text);
   await txChar.writeValue(data);
+
+  if(text.trim() === "ten"){
+    document.getElementById("alert").innerHTML =
+      "🚨 แจ้งเหตุฉุกเฉินแล้ว!";
+  }
 }
 </script>
 
