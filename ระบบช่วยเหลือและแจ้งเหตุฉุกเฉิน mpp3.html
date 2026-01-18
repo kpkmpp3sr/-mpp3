@@ -1,68 +1,140 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-  <meta charset="UTF-8" />
-  <title>micro:bit Web Bluetooth</title>
-  <style>
-    body {
-      font-family: sans-serif;
-      text-align: center;
-      margin-top: 50px;
-    }
-    button {
-      font-size: 18px;
-      padding: 10px 20px;
-    }
-    #status {
-      margin-top: 20px;
-      font-weight: bold;
-    }
-  </style>
+<meta charset="UTF-8">
+<title>MPP3 Emergency System</title>
+
+<style>
+body {
+  margin: 0;
+  font-family: "Segoe UI", sans-serif;
+  background: linear-gradient(135deg, #fff9c4, #bbdefb);
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.card {
+  background: #fff;
+  width: 420px;
+  padding: 30px;
+  border-radius: 20px;
+  box-shadow: 0 15px 30px rgba(0,0,0,0.2);
+  text-align: center;
+}
+
+.logo {
+  font-size: 42px;
+  font-weight: bold;
+  color: #f4b400;
+}
+
+.title {
+  font-size: 20px;
+  color: #0277bd;
+  margin-top: 10px;
+}
+
+.school {
+  font-size: 14px;
+  color: #555;
+  margin-bottom: 20px;
+}
+
+button {
+  background: linear-gradient(135deg, #ffd54f, #4fc3f7);
+  border: none;
+  border-radius: 25px;
+  padding: 12px 25px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+#status {
+  margin-top: 15px;
+  font-size: 14px;
+}
+
+#alert {
+  margin-top: 20px;
+  border: 2px dashed red;
+  border-radius: 10px;
+  padding: 20px;
+  font-size: 18px;
+  color: red;
+  font-weight: bold;
+}
+
+footer {
+  margin-top: 15px;
+  font-size: 12px;
+  color: #777;
+}
+</style>
 </head>
+
 <body>
 
-  <h1>เชื่อมต่อ micro:bit (Web Bluetooth)</h1>
+<div class="card">
+  <div class="logo">MPP3</div>
+  <div class="title">ระบบช่วยเหลือและแจ้งเหตุฉุกเฉิน</div>
+  <div class="school">โรงเรียนมัธยมพัชรกิติยาภา ๓ สุราษฎร์ธานี</div>
+
   <button onclick="connect()">🔵 เชื่อมต่อ micro:bit</button>
+
   <div id="status">สถานะ: ยังไม่เชื่อมต่อ</div>
 
+  <div id="alert">รอการแจ้งเหตุ...</div>
+
+  <footer>Emergency Assistance System | MPP3</footer>
+</div>
+
 <script>
-let device;
-let server;
+const UART_SERVICE = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
+const UART_NOTIFY = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
 
 async function connect() {
   try {
-    document.getElementById("status").textContent = "กำลังค้นหาอุปกรณ์...";
+    document.getElementById("status").textContent =
+      "สถานะ: กำลังเชื่อมต่อ...";
 
-    device = await navigator.bluetooth.requestDevice({
+    const device = await navigator.bluetooth.requestDevice({
       filters: [{ namePrefix: "BBC micro:bit" }],
-      optionalServices: ['battery_service']
+      optionalServices: [UART_SERVICE]
     });
 
-    device.addEventListener('gattserverdisconnected', onDisconnected);
+    const server = await device.gatt.connect();
+    const service = await server.getPrimaryService(UART_SERVICE);
+    const notifyChar = await service.getCharacteristic(UART_NOTIFY);
 
-    server = await device.gatt.connect();
+    await notifyChar.startNotifications();
+    notifyChar.addEventListener(
+      "characteristicvaluechanged",
+      onReceive
+    );
 
     document.getElementById("status").textContent =
-      "✅ เชื่อมต่อแล้ว: " + device.name;
+      "สถานะ: ✅ เชื่อมต่อสำเร็จ";
 
-    // อ่านค่าแบตเตอรี่เป็นตัวอย่าง
-    const service = await server.getPrimaryService('battery_service');
-    const char = await service.getCharacteristic('battery_level');
-    const value = await char.readValue();
-
-    document.getElementById("status").textContent +=
-      " | 🔋 แบตเตอรี่ " + value.getUint8(0) + "%";
-
-  } catch (error) {
+  } catch (err) {
     document.getElementById("status").textContent =
-      "❌ Error: " + error.message;
-    console.error(error);
+      "สถานะ: ❌ เชื่อมต่อไม่สำเร็จ";
+    console.error(err);
   }
 }
 
-function onDisconnected() {
-  document.getElementById("status").textContent =
-    "⚠️ micro:bit หลุดการเชื่อมต่อ";
+function onReceive(event) {
+  const value = event.target.value;
+  let text = "";
+
+  for (let i = 0; i < value.byteLength; i++) {
+    text += String.fromCharCode(value.getUint8(i));
+  }
+
+  document.getElementById("alert").textContent =
+    "🚨 แจ้งเหตุ: " + text;
 }
 </script>
 
