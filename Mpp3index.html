@@ -7,55 +7,55 @@
 <style>
 body{
   margin:0;
+  font-family:"Segoe UI",sans-serif;
+  background:linear-gradient(120deg,#fff9c4,#e3f2fd);
   height:100vh;
   display:flex;
   justify-content:center;
   align-items:center;
-  background: linear-gradient(120deg,#fffde7,#e3f2fd);
-  font-family: "Segoe UI", sans-serif;
 }
 
 .card{
   background:#fff;
   width:420px;
-  padding:40px;
-  border-radius:25px;
+  padding:35px;
+  border-radius:28px;
   text-align:center;
-  box-shadow:0 15px 40px rgba(0,0,0,0.15);
+  box-shadow:0 20px 40px rgba(0,0,0,0.15);
 }
 
 h1{
   color:#f4b400;
-  margin-bottom:5px;
+  font-size:48px;
+  margin:0;
 }
 
-h3{
+.subtitle{
   color:#1e88e5;
-  margin-top:0;
+  font-weight:bold;
+  margin-top:8px;
 }
 
 .school{
+  color:#555;
   font-size:14px;
-  margin-bottom:25px;
+  margin-bottom:20px;
 }
 
 button{
+  padding:14px 30px;
   border:none;
-  padding:15px 28px;
+  border-radius:40px;
   font-size:16px;
-  border-radius:30px;
   cursor:pointer;
-  background: linear-gradient(90deg,#fdd835,#42a5f5);
-  color:#000;
-  margin:8px 0;
+  background:linear-gradient(90deg,#fdd835,#42a5f5);
 }
 
 input{
-  width:80%;
-  padding:12px;
+  padding:10px;
+  width:70%;
   border-radius:20px;
   border:1px solid #ccc;
-  margin-top:10px;
 }
 
 #status{
@@ -63,18 +63,13 @@ input{
   font-weight:bold;
 }
 
-#alert{
-  margin-top:25px;
-  border:2px dashed red;
+.alert{
+  margin-top:20px;
   padding:20px;
-  border-radius:15px;
+  border:3px dashed red;
+  border-radius:20px;
   color:red;
   font-size:20px;
-}
-.footer{
-  margin-top:20px;
-  font-size:12px;
-  color:#777;
 }
 </style>
 </head>
@@ -83,66 +78,73 @@ input{
 
 <div class="card">
   <h1>MPP3</h1>
-  <h3>ระบบช่วยเหลือและแจ้งเหตุฉุกเฉิน</h3>
-  <div class="school">
-    โรงเรียนมัธยมพัชรกิติยาภา ๓ สุราษฎร์ธานี
-  </div>
+  <div class="subtitle">ระบบช่วยเหลือและแจ้งเหตุฉุกเฉิน</div>
+  <div class="school">โรงเรียนมัธยมพัชรกิติยาภา ๓ สุราษฎร์ธานี</div>
 
   <button onclick="connect()">🔵 เชื่อมต่อ micro:bit</button>
 
-  <br>
-  <input id="msg" placeholder="พิมพ์ข้อความ (เช่น ten)" />
-  <br>
-  <button onclick="send()">📤 ส่งข้อมูล</button>
-
   <div id="status">สถานะ: ยังไม่เชื่อมต่อ</div>
 
-  <div id="alert">รอการแจ้งเหตุ...</div>
+  <br>
+  <input id="msg" placeholder="ส่งข้อความไปที่บอร์ด">
+  <br><br>
+  <button onclick="send()">📤 ส่งข้อมูล</button>
 
-  <div class="footer">
-    Emergency Assistance System | MPP3
+  <div class="alert" id="alert">
+    ⏳ รอการแจ้งเหตุจากบอร์ด...
   </div>
 </div>
 
 <script>
-let txChar;
+let txChar, rxChar;
 
 async function connect(){
   try{
     const device = await navigator.bluetooth.requestDevice({
-      filters: [{ namePrefix: 'BBC micro:bit' }],
-      optionalServices: ['6e400001-b5a3-f393-e0a9-e50e24dcca9e']
+      filters:[{ namePrefix:"BBC micro:bit" }],
+      optionalServices:["6e400001-b5a3-f393-e0a9-e50e24dcca9e"]
     });
 
     const server = await device.gatt.connect();
     const service = await server.getPrimaryService(
-      '6e400001-b5a3-f393-e0a9-e50e24dcca9e'
+      "6e400001-b5a3-f393-e0a9-e50e24dcca9e"
     );
 
     txChar = await service.getCharacteristic(
-      '6e400002-b5a3-f393-e0a9-e50e24dcca9e'
+      "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
     );
 
-    document.getElementById("status").innerHTML =
-      "สถานะ: ✅ เชื่อมต่อสำเร็จ";
+    rxChar = await service.getCharacteristic(
+      "6e400003-b5a3-f393-e0a9-e50e24dcca9e"
+    );
+
+    await rxChar.startNotifications();
+    rxChar.addEventListener("characteristicvaluechanged", receive);
+
+    document.getElementById("status").innerText =
+      "✅ เชื่อมต่อ micro:bit สำเร็จ";
   }
   catch(err){
-    document.getElementById("status").innerHTML =
-      "สถานะ: ❌ " + err;
+    document.getElementById("status").innerText =
+      "❌ เชื่อมต่อไม่สำเร็จ";
+    console.error(err);
   }
 }
 
 async function send(){
   if(!txChar){
-    alert("ยังไม่ได้เชื่อมต่อ micro:bit");
+    alert("ยังไม่ได้เชื่อมต่อ");
     return;
   }
-
   const text = document.getElementById("msg").value + "\n";
-  const data = new TextEncoder().encode(text);
-  await txChar.writeValue(data);
+  await txChar.writeValue(new TextEncoder().encode(text));
+}
 
-  if(text.trim() === "ten"){
+function receive(e){
+  const data = new TextDecoder().decode(e.target.value).trim();
+  console.log(data);
+
+  if(data==="ten" || data==="HELP"){
     document.getElementById("alert").innerHTML =
       "🚨 แจ้งเหตุฉุกเฉินแล้ว!";
   }
