@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <title>micro:bit Web Bluetooth</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      margin-top: 50px;
+    }
+    button {
+      font-size: 18px;
+      padding: 10px 20px;
+    }
+    #status {
+      margin-top: 20px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>เชื่อมต่อ micro:bit (Web Bluetooth)</h1>
+  <button onclick="connect()">🔵 เชื่อมต่อ micro:bit</button>
+  <div id="status">สถานะ: ยังไม่เชื่อมต่อ</div>
+
+<script>
+let device;
+let server;
+
+async function connect() {
+  try {
+    document.getElementById("status").textContent = "กำลังค้นหาอุปกรณ์...";
+
+    device = await navigator.bluetooth.requestDevice({
+      filters: [{ namePrefix: "BBC micro:bit" }],
+      optionalServices: ['battery_service']
+    });
+
+    device.addEventListener('gattserverdisconnected', onDisconnected);
+
+    server = await device.gatt.connect();
+
+    document.getElementById("status").textContent =
+      "✅ เชื่อมต่อแล้ว: " + device.name;
+
+    // อ่านค่าแบตเตอรี่เป็นตัวอย่าง
+    const service = await server.getPrimaryService('battery_service');
+    const char = await service.getCharacteristic('battery_level');
+    const value = await char.readValue();
+
+    document.getElementById("status").textContent +=
+      " | 🔋 แบตเตอรี่ " + value.getUint8(0) + "%";
+
+  } catch (error) {
+    document.getElementById("status").textContent =
+      "❌ Error: " + error.message;
+    console.error(error);
+  }
+}
+
+function onDisconnected() {
+  document.getElementById("status").textContent =
+    "⚠️ micro:bit หลุดการเชื่อมต่อ";
+}
+</script>
+
+</body>
+</html>
