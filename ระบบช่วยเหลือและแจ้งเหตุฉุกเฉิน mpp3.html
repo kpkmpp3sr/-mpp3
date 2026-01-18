@@ -1,156 +1,68 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ระบบรับสัญญาณแจ้งเหตุ (micro:bit)</title>
-
-<style>
+  <meta charset="UTF-8" />
+  <title>micro:bit Web Bluetooth</title>
+  <style>
     body {
-        font-family: Tahoma, sans-serif;
-        background: #e3f2fd;
-        text-align: center;
-        padding: 30px;
-    }
-    .card {
-        background: white;
-        max-width: 420px;
-        margin: auto;
-        padding: 30px;
-        border-radius: 20px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+      font-family: sans-serif;
+      text-align: center;
+      margin-top: 50px;
     }
     button {
-        width: 100%;
-        padding: 15px;
-        font-size: 18px;
-        border: none;
-        border-radius: 10px;
-        background: #1976d2;
-        color: white;
-        cursor: pointer;
-        margin-top: 10px;
-    }
-    button:disabled {
-        background: #aaa;
+      font-size: 18px;
+      padding: 10px 20px;
     }
     #status {
-        margin-top: 15px;
-        font-size: 14px;
-        color: #555;
+      margin-top: 20px;
+      font-weight: bold;
     }
-    #emergency {
-        display: none;
-        background: #d32f2f;
-        color: white;
-        margin-top: 20px;
-        padding: 20px;
-        border-radius: 15px;
-        animation: pulse 1s infinite;
-    }
-    @keyframes pulse {
-        0% { transform: scale(1); }
-        50% { transform: scale(1.05); }
-        100% { transform: scale(1); }
-    }
-</style>
+  </style>
 </head>
-
 <body>
 
-<div class="card">
-    <h2>🚨 ระบบช่วยเหลือฉุกเฉิน</h2>
-    <p>รับสัญญาณจาก micro:bit ของนักเรียน</p>
-
-    <button id="connectBtn" onclick="connectMicrobit()">
-        เชื่อมต่อ micro:bit
-    </button>
-
-    <div id="status">สถานะ: ยังไม่เชื่อมต่อ</div>
-
-    <div id="emergency">
-        <h1>มีการแจ้งเหตุ!</h1>
-        <p>นักเรียนต้องการความช่วยเหลือ</p>
-        <button onclick="resetAlert()" style="background:#fff;color:#d32f2f;">
-            รับทราบแล้ว
-        </button>
-    </div>
-</div>
+  <h1>เชื่อมต่อ micro:bit (Web Bluetooth)</h1>
+  <button onclick="connect()">🔵 เชื่อมต่อ micro:bit</button>
+  <div id="status">สถานะ: ยังไม่เชื่อมต่อ</div>
 
 <script>
-// ===============================
-// UUID สำหรับ micro:bit UART
-// ===============================
-const UART_SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
-const UART_TX_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
+let device;
+let server;
 
-let uartCharacteristic = null;
+async function connect() {
+  try {
+    document.getElementById("status").textContent = "กำลังค้นหาอุปกรณ์...";
 
-// ===============================
-// เชื่อมต่อ micro:bit
-// ===============================
-async function connectMicrobit() {
-    try {
-        document.getElementById("status").innerText = "กำลังค้นหา micro:bit...";
+    device = await navigator.bluetooth.requestDevice({
+      filters: [{ namePrefix: "BBC micro:bit" }],
+      optionalServices: ['battery_service']
+    });
 
-        const device = await navigator.bluetooth.requestDevice({
-            filters: [{ namePrefix: 'BBC micro:bit' }],
-            optionalServices: [UART_SERVICE_UUID]
-        });
+    device.addEventListener('gattserverdisconnected', onDisconnected);
 
-        document.getElementById("status").innerText = "กำลังเชื่อมต่อ...";
+    server = await device.gatt.connect();
 
-        const server = await device.gatt.connect();
-        const service = await server.getPrimaryService(UART_SERVICE_UUID);
-        uartCharacteristic = await service.getCharacteristic(UART_TX_UUID);
+    document.getElementById("status").textContent =
+      "✅ เชื่อมต่อแล้ว: " + device.name;
 
-        await uartCharacteristic.startNotifications();
-        uartCharacteristic.addEventListener(
-            'characteristicvaluechanged',
-            onDataReceived
-        );
+    // อ่านค่าแบตเตอรี่เป็นตัวอย่าง
+    const service = await server.getPrimaryService('battery_service');
+    const char = await service.getCharacteristic('battery_level');
+    const value = await char.readValue();
 
-        document.getElementById("status").innerText =
-            "เชื่อมต่อสำเร็จ ✔ พร้อมรับสัญญาณ";
-        document.getElementById("status").style.color = "green";
-        document.getElementById("connectBtn").disabled = true;
+    document.getElementById("status").textContent +=
+      " | 🔋 แบตเตอรี่ " + value.getUint8(0) + "%";
 
-    } catch (error) {
-        alert("เชื่อมต่อไม่สำเร็จ: " + error);
-        console.error(error);
-        document.getElementById("status").innerText = "เชื่อมต่อล้มเหลว";
-    }
+  } catch (error) {
+    document.getElementById("status").textContent =
+      "❌ Error: " + error.message;
+    console.error(error);
+  }
 }
 
-// ===============================
-// รับข้อมูลจาก micro:bit
-// ===============================
-function onDataReceived(event) {
-    const value = new TextDecoder().decode(event.target.value);
-    console.log("รับข้อมูล:", value);
-
-    if (value.includes("ten")) {
-        showEmergency();
-    }
-}
-
-// ===============================
-// แสดงแจ้งเหตุ
-// ===============================
-function showEmergency() {
-    const box = document.getElementById("emergency");
-    box.style.display = "block";
-
-    if ("vibrate" in navigator) {
-        navigator.vibrate([500, 200, 500, 200, 500]);
-    }
-}
-
-// ===============================
-// รีเซ็ตการแจ้งเหตุ
-// ===============================
-function resetAlert() {
-    document.getElementById("emergency").style.display = "none";
+function onDisconnected() {
+  document.getElementById("status").textContent =
+    "⚠️ micro:bit หลุดการเชื่อมต่อ";
 }
 </script>
 
