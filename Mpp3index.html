@@ -2,141 +2,91 @@
 <html lang="th">
 <head>
 <meta charset="UTF-8">
-<title>MPP3 Emergency System</title>
-
+<title>MPP3 Emergency</title>
 <style>
 body{
   margin:0;
-  font-family:"Segoe UI", Arial, sans-serif;
-  background: linear-gradient(135deg,#fff7cc,#e3f2fd);
   height:100vh;
   display:flex;
   justify-content:center;
   align-items:center;
+  font-family:Arial;
+  background:#fffbe6;
 }
-
 .card{
   background:#fff;
-  width:420px;
-  padding:35px;
-  border-radius:25px;
+  padding:30px;
+  width:400px;
+  border-radius:20px;
   text-align:center;
-  box-shadow:0 15px 40px rgba(0,0,0,0.15);
+  box-shadow:0 10px 30px rgba(0,0,0,.2);
 }
-
-.logo{
-  font-size:42px;
-  font-weight:bold;
-  color:#f4b400;
-}
-
-.title{
-  color:#2979ff;
-  margin-bottom:25px;
-  font-weight:bold;
-}
-
 button{
-  background: linear-gradient(90deg,#fdd835,#42a5f5);
+  padding:12px 25px;
   border:none;
+  border-radius:25px;
+  background:#42a5f5;
   color:#fff;
-  padding:14px 28px;
   font-size:16px;
-  border-radius:30px;
   cursor:pointer;
 }
-
-#status{
-  margin-top:15px;
-  font-weight:bold;
-}
-
-#alertBox{
-  margin-top:25px;
+#alert{
+  margin-top:20px;
+  padding:15px;
   border:2px dashed red;
-  padding:20px;
-  border-radius:15px;
-  font-size:20px;
   color:red;
-  min-height:80px;
+  min-height:70px;
 }
 </style>
 </head>
 
 <body>
 <div class="card">
-  <div class="logo">MPP3</div>
-
-  <div class="title">
-    ระบบช่วยเหลือและแจ้งเหตุฉุกเฉิน<br>
-    โรงเรียนมัธยมพัชรกิติยาภา ๓ สุราษฎร์ธานี
-  </div>
+  <h2>MPP3</h2>
+  <p>ระบบแจ้งเหตุฉุกเฉิน</p>
 
   <button onclick="connect()">🔵 เชื่อมต่อ micro:bit</button>
+  <p id="status">ยังไม่เชื่อมต่อ</p>
 
-  <div id="status">สถานะ: ยังไม่เชื่อมต่อ</div>
-
-  <div id="alertBox">⏳ รอการแจ้งเหตุจากบอร์ด...</div>
+  <div id="alert">⏳ รอการแจ้งเหตุจากบอร์ด...</div>
 </div>
 
 <script>
-let txChar;
+let rx;
 
 async function connect(){
-  try{
-    const device = await navigator.bluetooth.requestDevice({
-      filters:[{ namePrefix:'BBC micro:bit' }],
-      optionalServices:['6e400001-b5a3-f393-e0a9-e50e24dcca9e']
-    });
+  const device = await navigator.bluetooth.requestDevice({
+    filters:[{namePrefix:'BBC micro:bit'}],
+    optionalServices:['6e400001-b5a3-f393-e0a9-e50e24dcca9e']
+  });
 
-    const server = await device.gatt.connect();
+  const server = await device.gatt.connect();
+  const service = await server.getPrimaryService(
+    '6e400001-b5a3-f393-e0a9-e50e24dcca9e'
+  );
 
-    const service = await server.getPrimaryService(
-      '6e400001-b5a3-f393-e0a9-e50e24dcca9e'
-    );
+  rx = await service.getCharacteristic(
+    '6e400002-b5a3-f393-e0a9-e50e24dcca9e'
+  );
 
-    // 🔴 จุดสำคัญ: ใช้ TX (6e400002)
-    txChar = await service.getCharacteristic(
-      '6e400002-b5a3-f393-e0a9-e50e24dcca9e'
-    );
+  await rx.startNotifications();
 
-    await txChar.startNotifications();
+  rx.addEventListener('characteristicvaluechanged', e=>{
+    const msg = new TextDecoder().decode(e.target.value).trim();
+    const d = msg.split(",");
 
-    txChar.addEventListener('characteristicvaluechanged', event => {
-      const msg = new TextDecoder()
-        .decode(event.target.value)
-        .trim();
+    if(d.length>=3){
+      document.getElementById("alert").innerHTML =
+        "🚨 แจ้งเหตุฉุกเฉิน<br>" +
+        "ชื่อ: " + d[1] + "<br>" +
+        "ตำแหน่ง: " + d[2];
+    }
+  });
 
-      console.log("รับจากบอร์ด:", msg);
-
-      // รูปแบบข้อความ: TEN,สมชาย,02/3
-      const data = msg.split(",");
-
-      if(data.length >= 3){
-        const name = data[1];
-        const location = data[2];
-
-        const building = location.charAt(0);
-        const floor = location.charAt(2);
-
-        document.getElementById("alertBox").innerHTML =
-          "🚨 <b>แจ้งเหตุฉุกเฉิน</b><br>" +
-          "👤 นักเรียน: " + name + "<br>" +
-          "📍 ตำแหน่ง: อาคาร " + building +
-          " ชั้น " + floor;
-      }
-    });
-
-    document.getElementById("status").innerText =
-      "สถานะ: ✅ เชื่อมต่อสำเร็จ";
-  }
-  catch(err){
-    document.getElementById("status").innerText =
-      "สถานะ: ❌ เชื่อมต่อไม่สำเร็จ (ใช้ Chrome)";
-    console.error(err);
-  }
+  document.getElementById("status").innerText =
+    "✅ เชื่อมต่อสำเร็จ";
 }
 </script>
-
 </body>
 </html>
+
